@@ -170,7 +170,7 @@ def create_cita(
     return {"mensaje": "Solicitud de cita enviada exitosamente."}
 
 
-@app.get("/citas/me", response_model=List[CitaDetail], tags=["Citas"])
+@app.get("/calendario/citas/me", response_model=List[CitaDetail], tags=["Citas"])
 def get_my_citas(
         current_user: UserInDB = Depends(get_current_active_user),
         conn: pyodbc.Connection = Depends(get_db_connection)
