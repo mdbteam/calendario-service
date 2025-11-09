@@ -35,7 +35,7 @@ def root():
 
 # --- ENDPOINTS DE DISPONIBILIDAD (REFACTORIZADOS) ---
 
-@app.post("/api/calendario/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Calendario"])
+@app.post("/calendario/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Calendario"])
 def add_disponibilidad(
         disponibilidad: DisponibilidadCreate,  # <-- Modelo actualizado
         current_user: UserInDB = Depends(get_current_active_user),
@@ -64,7 +64,7 @@ def add_disponibilidad(
     return {"mensaje": "Bloque de disponibilidad añadido."}
 
 
-@app.get("/api/calendario/disponibilidad/me",
+@app.get("/calendario/disponibilidad/me",
          response_model=List[DisponibilidadPrivada],
          tags=["Calendario"])
 def get_my_availability(
@@ -87,7 +87,7 @@ def get_my_availability(
         cursor.close()
 
 
-@app.get("/api/calendario/disponibilidad/publica/{id_prestador}",
+@app.get("/calendario/disponibilidad/publica/{id_prestador}",
          response_model=List[BloquePublico],
          tags=["Calendario"])
 def get_public_availability(
@@ -134,7 +134,7 @@ def get_public_availability(
 
 # --- ENDPOINTS DE CITAS (MODIFICADOS Y ARREGLADOS) ---
 
-@app.post("/api/citas", status_code=status.HTTP_201_CREATED, tags=["Citas"])
+@app.post("/citas", status_code=status.HTTP_201_CREATED, tags=["Citas"])
 def create_cita(
         cita_data: CitaCreate,  # <-- Modelo actualizado
         current_user: UserInDB = Depends(get_current_active_user),
@@ -170,7 +170,7 @@ def create_cita(
     return {"mensaje": "Solicitud de cita enviada exitosamente."}
 
 
-@app.get("/api/citas/me", response_model=List[CitaDetail], tags=["Citas"])
+@app.get("/citas/me", response_model=List[CitaDetail], tags=["Citas"])
 def get_my_citas(
         current_user: UserInDB = Depends(get_current_active_user),
         conn: pyodbc.Connection = Depends(get_db_connection)
@@ -209,7 +209,7 @@ def get_my_citas(
 
 # --- ENDPOINTS DE GESTIÓN (TUS ENDPOINTS ESTABAN BIEN, ¡LOS MANTENEMOS!) ---
 
-@app.post("/api/citas/{id_cita}/confirmar", tags=["Citas"])
+@app.post("/citas/{id_cita}/confirmar", tags=["Citas"])
 def confirm_cita(
         id_cita: int,
         current_user: UserInDB = Depends(get_current_active_user),
@@ -255,7 +255,7 @@ def confirm_cita(
     return {"mensaje": "Cita confirmada exitosamente. El chat ha sido activado."}
 
 
-@app.post("/api/citas/{id_cita}/rechazar", tags=["Citas"])
+@app.post("/citas/{id_cita}/rechazar", tags=["Citas"])
 def reject_cita(
         id_cita: int,
         current_user: UserInDB = Depends(get_current_active_user),
