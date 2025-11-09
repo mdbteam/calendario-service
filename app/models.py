@@ -45,19 +45,16 @@ class CitaDetail(BaseModel):
     id_cliente: int
     id_prestador: int
     fecha_hora_cita: datetime
-    duracion_min: int  # <-- AÑADIDO (Lo tenemos en la BBDD)
+    duracion_min: int
     detalles: Optional[str] = None
     estado: str
-
-    # --- CAMPOS MEJORADOS (Req 2.2) ---
     id_trabajo: Optional[int]
     id_valoracion: Optional[int]
-    cliente_nombres: str  # <-- AÑADIDO (Requerido por el frontend)
-    prestador_nombres: str  # <-- AÑADIDO (Requerido por el frontend)
+    cliente_nombres: str
+    prestador_nombres: str
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 # --- MODELOS DE ENTRADA (CREATE) ---
 
