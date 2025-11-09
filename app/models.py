@@ -1,25 +1,10 @@
-# app/models.py
+# En app/models.py
 from pydantic import BaseModel, Field
 from datetime import datetime, date
 from typing import List, Optional
 
-# Modelo para que el prestador envíe su disponibilidad
-class DisponibilidadCreate(BaseModel):
-    fecha_hora_inicio: datetime
-    fecha_hora_fin: datetime
 
-# Modelo para mostrar cada hora disponible al cliente
-class HorarioDisponible(BaseModel):
-    hora_inicio: datetime
-
-# Modelo para que el cliente solicite una cita
-class CitaCreate(BaseModel):
-    id_prestador: int
-    fecha_hora_cita: datetime
-    detalles: Optional[str] = None
-
-# --- MODELO CORREGIDO Y COMPLEto ---
-# Modelo interno para el usuario autenticado
+# --- Modelo base para la Autenticación ---
 class UserInDB(BaseModel):
     id_usuario: int
     nombres: str
@@ -28,11 +13,64 @@ class UserInDB(BaseModel):
     id_rol: int
     estado: str
 
-# Modelo para la respuesta de "Mis Citas"
+    class Config:
+        orm_mode = True
+
+
+# --- REQ 2.0 (El que reemplaza a HorarioDisponible) ---
+# El frontend quiere BLOQUES, no horas sueltas
+class BloquePublico(BaseModel):
+    hora_inicio: datetime
+    hora_fin: datetime
+    # 'disponible' (es_bloqueo=0) o 'ocupado' (es_bloqueo=1 o Cita)
+    estado: str
+
+
+# --- REQ 2.1 (Para el Prestador) ---
+# El prestador ve sus bloques y si son bloqueos
+class DisponibilidadPrivada(BaseModel):
+    id_disponibilidad: int
+    hora_inicio: datetime
+    hora_fin: datetime
+    es_bloqueo: bool  # True si es "Almuerzo", False si es "Trabajando"
+
+    class Config:
+        orm_mode = True
+
+
+# --- REQ 2.2 (Mis Citas - CORREGIDO) ---
+# ¡Aquí faltaban los nombres y la duración!
 class CitaDetail(BaseModel):
     id_cita: int
     id_cliente: int
     id_prestador: int
     fecha_hora_cita: datetime
+    duracion_min: int  # <-- AÑADIDO (Lo tenemos en la BBDD)
     detalles: Optional[str] = None
     estado: str
+
+    # --- CAMPOS MEJORADOS (Req 2.2) ---
+    id_trabajo: Optional[int]
+    id_valoracion: Optional[int]
+    cliente_nombres: str  # <-- AÑADIDO (Requerido por el frontend)
+    prestador_nombres: str  # <-- AÑADIDO (Requerido por el frontend)
+
+    class Config:
+        orm_mode = True
+
+
+# --- MODELOS DE ENTRADA (CREATE) ---
+
+# (Prestador) Define su horario (si trabaja o bloquea)
+class DisponibilidadCreate(BaseModel):
+    hora_inicio: datetime
+    hora_fin: datetime
+    es_bloqueo: bool = Field(False, description="False=Disponible, True=No disponible")
+
+
+# (Cliente) Solicita una cita
+class CitaCreate(BaseModel):
+    id_prestador: int
+    fecha_hora_cita: datetime
+    duracion_min: int = Field(60, description="Duración en minutos")  # <-- AÑADIDO
+    detalles: Optional[str] = None

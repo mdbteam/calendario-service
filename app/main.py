@@ -1,4 +1,4 @@
-# app/main.py
+# En app/main.py
 from fastapi import FastAPI, Depends, HTTPException, status
 from typing import List
 from datetime import datetime, timedelta
@@ -8,7 +8,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.database import get_db_connection
-from app.models import DisponibilidadCreate, HorarioDisponible, CitaCreate, UserInDB, CitaDetail
+# ¡Importamos los NUEVOS modelos!
+from app.models import (
+    UserInDB, BloquePublico, DisponibilidadPrivada, CitaDetail,
+    DisponibilidadCreate, CitaCreate
+)
 from app.auth_utils import get_current_active_user
 
 app = FastAPI(
@@ -29,18 +33,28 @@ def root():
     return {"message": "Calendar Service funcionando 🚀"}
 
 
-# --- (Endpoints /disponibilidad y /citas sin cambios) ---
-@app.post("/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Disponibilidad"])
-def add_disponibilidad(disponibilidad: DisponibilidadCreate, current_user: UserInDB = Depends(get_current_active_user),
-                       conn: pyodbc.Connection = Depends(get_db_connection)):
+# --- ENDPOINTS DE DISPONIBILIDAD (REFACTORIZADOS) ---
+
+@app.post("/api/calendario/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Calendario"])
+def add_disponibilidad(
+        disponibilidad: DisponibilidadCreate,  # <-- Modelo actualizado
+        current_user: UserInDB = Depends(get_current_active_user),
+        conn: pyodbc.Connection = Depends(get_db_connection)
+):
+    """(Req 2.1) (Prestador) Añade un bloque de trabajo (es_bloqueo=0) o un bloqueo (es_bloqueo=1)"""
     es_prestador(current_user)
     id_prestador = current_user.id_usuario
-    if disponibilidad.fecha_hora_fin <= disponibilidad.fecha_hora_inicio:
+
+    if disponibilidad.hora_fin <= disponibilidad.hora_inicio:
         raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a la de inicio.")
+
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO Disponibilidad (id_prestador, fecha_hora_inicio, fecha_hora_fin) VALUES (?, ?, ?)",
-                       id_prestador, disponibilidad.fecha_hora_inicio, disponibilidad.fecha_hora_fin)
+        # Usamos la nueva lógica de 'es_bloqueo'
+        cursor.execute(
+            "INSERT INTO Disponibilidad (id_prestador, hora_inicio, hora_fin, es_bloqueo) VALUES (?, ?, ?, ?)",
+            id_prestador, disponibilidad.hora_inicio, disponibilidad.hora_fin, disponibilidad.es_bloqueo
+        )
         conn.commit()
     except pyodbc.Error as e:
         conn.rollback();
@@ -50,45 +64,103 @@ def add_disponibilidad(disponibilidad: DisponibilidadCreate, current_user: UserI
     return {"mensaje": "Bloque de disponibilidad añadido."}
 
 
-@app.get("/prestadores/{id_prestador}/disponibilidad", response_model=List[HorarioDisponible], tags=["Disponibilidad"])
-def get_disponibilidad(id_prestador: int, conn: pyodbc.Connection = Depends(get_db_connection)):
+@app.get("/api/calendario/disponibilidad/me",
+         response_model=List[DisponibilidadPrivada],
+         tags=["Calendario"])
+def get_my_availability(
+        current_user: UserInDB = Depends(get_current_active_user),
+        conn: pyodbc.Connection = Depends(get_db_connection)
+):
+    """(Req 2.1) (Prestador) Obtiene sus propios bloques (trabajo y bloqueos)."""
+    user_id = current_user.id_usuario
     cursor = conn.cursor()
-    ahora = datetime.now()
-    cursor.execute("SELECT fecha_hora_inicio, fecha_hora_fin FROM Disponibilidad WHERE id_prestador = ?", id_prestador)
-    bloques_disponibles = cursor.fetchall()
-    cursor.execute(
-        "SELECT fecha_hora_cita FROM Citas WHERE id_prestador = ? AND estado IN ('solicitada', 'confirmada')",
-        id_prestador)
-    citas_agendadas = {row.fecha_hora_cita for row in cursor.fetchall()}
-    cursor.close()
-    horas_finales = set()
-    for bloque in bloques_disponibles:
-        hora_actual = bloque.fecha_hora_inicio
-        while hora_actual < bloque.fecha_hora_fin:
-            if hora_actual > ahora and hora_actual not in citas_agendadas:
-                horas_finales.add(hora_actual)
-            hora_actual += timedelta(hours=1)
-    horas_ordenadas = sorted(list(horas_finales))
-    return [HorarioDisponible(hora_inicio=h) for h in horas_ordenadas]
+    try:
+        query = "SELECT * FROM Disponibilidad WHERE id_prestador = ? ORDER BY hora_inicio ASC"
+        cursor.execute(query, user_id)
+        rows = cursor.fetchall()
+        if not rows:
+            return []
+        return [DisponibilidadPrivada.from_orm(row) for row in rows]
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Error BBDD: {e}")
+    finally:
+        cursor.close()
 
 
-@app.post("/citas", status_code=status.HTTP_201_CREATED, tags=["Citas"])
-def create_cita(cita_data: CitaCreate, current_user: UserInDB = Depends(get_current_active_user),
-                conn: pyodbc.Connection = Depends(get_db_connection)):
+@app.get("/api/calendario/disponibilidad/publica/{id_prestador}",
+         response_model=List[BloquePublico],
+         tags=["Calendario"])
+def get_public_availability(
+        id_prestador: int,
+        conn: pyodbc.Connection = Depends(get_db_connection)
+):
+    """(Req 2.0) (Cliente) Obtiene bloques 'disponibles' y 'ocupados' de un prestador."""
+    cursor = conn.cursor()
+    bloques_publicos = []
+
+    try:
+        # 1. Obtenemos TODOS los bloques de la BBDD (trabajo y bloqueos)
+        query_disp = "SELECT hora_inicio, hora_fin, es_bloqueo FROM Disponibilidad WHERE id_prestador = ?"
+        cursor.execute(query_disp, id_prestador)
+
+        for row in cursor.fetchall():
+            bloques_publicos.append(BloquePublico(
+                hora_inicio=row.hora_inicio,
+                hora_fin=row.hora_fin,
+                # Si es_bloqueo=1 (True) -> 'ocupado', si no -> 'disponible'
+                estado="ocupado" if row.es_bloqueo else "disponible"
+            ))
+
+        # 2. Obtenemos las citas ACEPTADAS (que siempre son 'ocupado')
+        query_citas = "SELECT fecha_hora_cita, duracion_min FROM Citas WHERE id_prestador = ? AND estado = 'aceptada'"
+        cursor.execute(query_citas, id_prestador)
+
+        for row in cursor.fetchall():
+            inicio_cita = row.fecha_hora_cita
+            fin_cita = inicio_cita + timedelta(minutes=row.duracion_min)
+            bloques_publicos.append(BloquePublico(
+                hora_inicio=inicio_cita,
+                hora_fin=fin_cita,
+                estado="ocupado"  # Una cita aceptada siempre es 'ocupado'
+            ))
+
+        return bloques_publicos
+
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Error BBDD: {e}")
+    finally:
+        cursor.close()
+
+
+# --- ENDPOINTS DE CITAS (MODIFICADOS Y ARREGLADOS) ---
+
+@app.post("/api/citas", status_code=status.HTTP_201_CREATED, tags=["Citas"])
+def create_cita(
+        cita_data: CitaCreate,  # <-- Modelo actualizado
+        current_user: UserInDB = Depends(get_current_active_user),
+        conn: pyodbc.Connection = Depends(get_db_connection)
+):
+    """(Cliente) Solicita una nueva cita (estado 'pendiente')"""
     id_cliente = current_user.id_usuario
     if id_cliente == cita_data.id_prestador:
         raise HTTPException(status_code=400, detail="No puedes agendar una cita contigo mismo.")
+
     cursor = conn.cursor()
     try:
+        # (MEJORA) La validación de conflicto es más compleja ahora
+        # (El frontend debería ayudar, pero aquí validamos de nuevo)
+        # (Por ahora, mantenemos tu validación simple de la hora de INICIO)
         cursor.execute(
-            "SELECT COUNT(*) FROM Citas WHERE id_prestador = ? AND fecha_hora_cita = ? AND estado IN ('solicitada', 'confirmada')",
+            "SELECT COUNT(*) FROM Citas WHERE id_prestador = ? AND fecha_hora_cita = ? AND estado IN ('pendiente', 'aceptada')",
             cita_data.id_prestador, cita_data.fecha_hora_cita)
         if cursor.fetchone()[0] > 0:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                detail="La hora seleccionada ya no está disponible.")
+                                detail="La hora de inicio seleccionada ya está ocupada.")
+
+        # ¡Insertamos con la duración!
         cursor.execute(
-            "INSERT INTO Citas (id_cliente, id_prestador, fecha_hora_cita, detalles, estado) VALUES (?, ?, ?, ?, 'solicitada')",
-            id_cliente, cita_data.id_prestador, cita_data.fecha_hora_cita, cita_data.detalles)
+            "INSERT INTO Citas (id_cliente, id_prestador, fecha_hora_cita, duracion_min, detalles, estado) VALUES (?, ?, ?, ?, ?, 'pendiente')",
+            id_cliente, cita_data.id_prestador, cita_data.fecha_hora_cita, cita_data.duracion_min, cita_data.detalles)
         conn.commit()
     except pyodbc.Error as e:
         conn.rollback();
@@ -98,45 +170,70 @@ def create_cita(cita_data: CitaCreate, current_user: UserInDB = Depends(get_curr
     return {"mensaje": "Solicitud de cita enviada exitosamente."}
 
 
-# --- NUEVOS ENDPOINTS ---
-
-@app.get("/citas/me", response_model=List[CitaDetail], tags=["Citas"])
-def get_my_citas(current_user: UserInDB = Depends(get_current_active_user),
-                 conn: pyodbc.Connection = Depends(get_db_connection)):
-    """Obtiene todas las citas (como cliente o prestador) del usuario autenticado."""
+@app.get("/api/citas/me", response_model=List[CitaDetail], tags=["Citas"])
+def get_my_citas(
+        current_user: UserInDB = Depends(get_current_active_user),
+        conn: pyodbc.Connection = Depends(get_db_connection)
+):
+    """(Req 2.2) Obtiene mis citas (como cliente o prestador) CON NOMBRES."""
     user_id = current_user.id_usuario
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Citas WHERE id_cliente = ? OR id_prestador = ?", user_id, user_id)
-    citas_db = cursor.fetchall()
-    cursor.close()
+    try:
+        # ¡La consulta con JOINs que necesita el frontend!
+        query = """
+            SELECT 
+                c.*,
+                (cli.nombres + ' ' + cli.primer_apellido) AS cliente_nombres,
+                (pre.nombres + ' ' + pre.primer_apellido) AS prestador_nombres
+            FROM Citas c
+            JOIN Usuarios cli ON c.id_cliente = cli.id_usuario
+            JOIN Usuarios pre ON c.id_prestador = pre.id_usuario
+            WHERE 
+                c.id_cliente = ? OR c.id_prestador = ?
+            ORDER BY c.fecha_hora_cita DESC
+        """
+        cursor.execute(query, user_id, user_id)
+        rows = cursor.fetchall()
+        if not rows:
+            return []
 
-    citas = [CitaDetail(**dict(zip([column[0] for column in row.cursor_description], row))) for row in citas_db]
-    return citas
+        # Mapeamos la respuesta al modelo Pydantic
+        resultados = [CitaDetail.from_orm(row) for row in rows]
+        return resultados
+
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Error BBDD: {e}")
+    finally:
+        cursor.close()
 
 
-@app.post("/citas/{id_cita}/confirmar", tags=["Citas"])
-def confirm_cita(id_cita: int, current_user: UserInDB = Depends(get_current_active_user),
-                 conn: pyodbc.Connection = Depends(get_db_connection)):
-    """(Solo Prestadores) Confirma una solicitud de cita."""
+# --- ENDPOINTS DE GESTIÓN (TUS ENDPOINTS ESTABAN BIEN, ¡LOS MANTENEMOS!) ---
+
+@app.post("/api/citas/{id_cita}/confirmar", tags=["Citas"])
+def confirm_cita(
+        id_cita: int,
+        current_user: UserInDB = Depends(get_current_active_user),
+        conn: pyodbc.Connection = Depends(get_db_connection)
+):
+    """(Solo Prestadores) Confirma una solicitud de cita y crea el chat."""
     es_prestador(current_user)
     id_prestador = current_user.id_usuario
     cursor = conn.cursor()
     try:
-        # 1. Actualizamos la cita a 'confirmada', asegurándonos de que el prestador es el dueño
+        # 1. Actualizamos la cita
         cursor.execute(
-            "UPDATE Citas SET estado = 'confirmada' WHERE id_cita = ? AND id_prestador = ? AND estado = 'solicitada'",
+            "UPDATE Citas SET estado = 'aceptada' WHERE id_cita = ? AND id_prestador = ? AND estado = 'pendiente'",
             id_cita, id_prestador)
 
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404,
-                                detail="Cita no encontrada, ya fue procesada, o no tienes permiso para confirmarla.")
+                                detail="Cita no encontrada, ya fue procesada, o no tienes permiso.")
 
-        # 2. Obtenemos el ID del cliente para crear la conversación
+        # 2. Obtenemos el ID del cliente
         cursor.execute("SELECT id_cliente FROM Citas WHERE id_cita = ?", id_cita)
         id_cliente = cursor.fetchone().id_cliente
 
-        # 3. Creamos la conversación en la tabla Conversaciones
-        # Usamos MERGE para evitar duplicados si la conversación ya existía por algún motivo
+        # 3. Creamos la conversación (Tu lógica MERGE era perfecta)
         cursor.execute(
             """
             MERGE Conversaciones AS target
@@ -148,7 +245,6 @@ def confirm_cita(id_cita: int, current_user: UserInDB = Depends(get_current_acti
             """,
             min(id_prestador, id_cliente), max(id_prestador, id_cliente)
         )
-
         conn.commit()
     except pyodbc.Error as e:
         conn.rollback();
@@ -159,20 +255,23 @@ def confirm_cita(id_cita: int, current_user: UserInDB = Depends(get_current_acti
     return {"mensaje": "Cita confirmada exitosamente. El chat ha sido activado."}
 
 
-@app.post("/citas/{id_cita}/rechazar", tags=["Citas"])
-def reject_cita(id_cita: int, current_user: UserInDB = Depends(get_current_active_user),
-                conn: pyodbc.Connection = Depends(get_db_connection)):
+@app.post("/api/citas/{id_cita}/rechazar", tags=["Citas"])
+def reject_cita(
+        id_cita: int,
+        current_user: UserInDB = Depends(get_current_active_user),
+        conn: pyodbc.Connection = Depends(get_db_connection)
+):
     """(Solo Prestadores) Rechaza una solicitud de cita."""
     es_prestador(current_user)
     id_prestador = current_user.id_usuario
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "UPDATE Citas SET estado = 'rechazada' WHERE id_cita = ? AND id_prestador = ? AND estado = 'solicitada'",
+            "UPDATE Citas SET estado = 'rechazada' WHERE id_cita = ? AND id_prestador = ? AND estado = 'pendiente'",
             id_cita, id_prestador)
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404,
-                                detail="Cita no encontrada, ya fue procesada, o no tienes permiso para rechazarla.")
+                                detail="Cita no encontrada, ya fue procesada, o no tienes permiso.")
         conn.commit()
     except pyodbc.Error as e:
         conn.rollback();
