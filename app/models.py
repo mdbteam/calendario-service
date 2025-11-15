@@ -14,27 +14,32 @@ class UserInDB(BaseModel):
     estado: str
 
     class Config:
-        from_attributes = True # <-- CORREGIDO (Era orm_mode)
+        orm_mode = True
 
 
 # --- REQ 2.0 (El que reemplaza a HorarioDisponible) ---
+# El frontend quiere BLOQUES, no horas sueltas
 class BloquePublico(BaseModel):
     hora_inicio: datetime
     hora_fin: datetime
-    estado: str # "disponible" | "no disponible"
+    # 'disponible' (es_bloqueo=0) o 'ocupado' (es_bloqueo=1 o Cita)
+    estado: str
 
 
 # --- REQ 2.1 (Para el Prestador) ---
-# class DisponibilidadPrivada(BaseModel):
-#     id_disponibilidad: int
-#     hora_inicio: datetime
-#     hora_fin: datetime
-#     es_bloqueo: bool
-#
-#     class Config:
-#         from_attributes = True
+# El prestador ve sus bloques y si son bloqueos
+class DisponibilidadPrivada(BaseModel):
+    id_disponibilidad: int
+    hora_inicio: datetime
+    hora_fin: datetime
+    es_bloqueo: True
+
+    class Config:
+        orm_mode = True
+
 
 # --- REQ 2.2 (Mis Citas - CORREGIDO) ---
+# ¡Aquí faltaban los nombres y la duración!
 class CitaDetail(BaseModel):
     id_cita: int
     id_cliente: int
@@ -50,18 +55,19 @@ class CitaDetail(BaseModel):
 
     class Config:
         from_attributes = True
+
 # --- MODELOS DE ENTRADA (CREATE) ---
 
 # (Prestador) Define su horario (si trabaja o bloquea)
-#class DisponibilidadCreate(BaseModel):
-#    hora_inicio: datetime
-#    hora_fin: datetime
-#    es_bloqueo: bool = Field(False, description="False=No disponible, True= disponible")
+class DisponibilidadCreate(BaseModel):
+    hora_inicio: datetime
+    hora_fin: datetime
+    es_bloqueo: bool = Field(False, description="False=Disponible, True=No disponible")
 
 
 # (Cliente) Solicita una cita
 class CitaCreate(BaseModel):
     id_prestador: int
     fecha_hora_cita: datetime
-    duracion_min: int = Field(30, description="Duración en minutos")  # <-- AÑADIDO
+    duracion_min: int = Field(60, description="Duración en minutos")  # <-- AÑADIDO
     detalles: Optional[str] = None
