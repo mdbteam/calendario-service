@@ -87,7 +87,7 @@ def get_my_availability(
         cursor.close()
 
 
-@app.get("/calendario/prestadores/{id_prestador}/disponibilidad",
+@app.get("/prestadores/{id_prestador}/disponibilidad",
          response_model=List[BloquePublico],
          tags=["Calendario"])
 def get_public_availability(
