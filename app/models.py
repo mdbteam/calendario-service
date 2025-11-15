@@ -14,17 +14,17 @@ class UserInDB(BaseModel):
     estado: str
 
     class Config:
-        from_attributes = True # (Pydantic V2)
+        from_attributes = True # <-- CORREGIDO (Era orm_mode)
 
 
-# --- REQ 2.0 (El único que usa el endpoint público) ---
+# --- REQ 2.0 (El que reemplaza a HorarioDisponible) ---
 class BloquePublico(BaseModel):
     hora_inicio: datetime
     hora_fin: datetime
-    estado: str # Siempre será "no disponible"
+    estado: str # "disponible" | "no disponible"
 
 
-# --- REQ 2.1 (Para el Prestador - PAUSADO) ---
+# --- REQ 2.1 (Para el Prestador) ---
 class DisponibilidadPrivada(BaseModel):
     id_disponibilidad: int
     hora_inicio: datetime
@@ -50,18 +50,18 @@ class CitaDetail(BaseModel):
 
     class Config:
         from_attributes = True
-
 # --- MODELOS DE ENTRADA (CREATE) ---
 
-# (Prestador) Define su horario (PAUSADO)
-class DisponibilidadCreate(BaseModel):
-   hora_inicio: datetime
-   hora_fin: datetime
-   es_bloqueo: bool = Field(False, description="False=No disponible, True= disponible")
+# (Prestador) Define su horario (si trabaja o bloquea)
+#class DisponibilidadCreate(BaseModel):
+#    hora_inicio: datetime
+#    hora_fin: datetime
+#    es_bloqueo: bool = Field(False, description="False=No disponible, True= disponible")
+
 
 # (Cliente) Solicita una cita
 class CitaCreate(BaseModel):
     id_prestador: int
     fecha_hora_cita: datetime
-    duracion_min: int = Field(30, description="Duración en minutos")
+    duracion_min: int = Field(30, description="Duración en minutos")  # <-- AÑADIDO
     detalles: Optional[str] = None
