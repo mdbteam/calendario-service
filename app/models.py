@@ -25,14 +25,14 @@ class BloquePublico(BaseModel):
 
 
 # --- REQ 2.1 (Para el Prestador) ---
-class DisponibilidadPrivada(BaseModel):
-    id_disponibilidad: int
-    hora_inicio: datetime
-    hora_fin: datetime
-    es_bloqueo: bool
-
-    class Config:
-        from_attributes = True
+# class DisponibilidadPrivada(BaseModel):
+#     id_disponibilidad: int
+#     hora_inicio: datetime
+#     hora_fin: datetime
+#     es_bloqueo: bool
+#
+#     class Config:
+#         from_attributes = True
 
 # --- REQ 2.2 (Mis Citas - CORREGIDO) ---
 class CitaDetail(BaseModel):
