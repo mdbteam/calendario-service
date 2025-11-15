@@ -81,6 +81,7 @@ def get_my_availability(
         rows = cursor.fetchall()
         if not rows:
             return []
+
         return [DisponibilidadPrivada.from_orm(row) for row in rows]
     except pyodbc.Error as e:
         raise HTTPException(status_code=500, detail=f"Error BBDD: {e}")
@@ -109,7 +110,7 @@ def get_public_availability(
                 hora_inicio=row.hora_inicio,
                 hora_fin=row.hora_fin,
                 # Si es_bloqueo=1 (True) -> 'ocupado', si no -> 'disponible'
-                estado="No disponible" if row.es_bloqueo else "No disponible"
+                estado="No disponible" if row.es_bloqueo else  "disponible"
             ))
 
         # 2. Obtenemos las citas ACEPTADAS (que siempre son 'ocupado')
