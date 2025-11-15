@@ -14,32 +14,27 @@ class UserInDB(BaseModel):
     estado: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True # <-- CORREGIDO (Era orm_mode)
 
 
 # --- REQ 2.0 (El que reemplaza a HorarioDisponible) ---
-# El frontend quiere BLOQUES, no horas sueltas
 class BloquePublico(BaseModel):
     hora_inicio: datetime
     hora_fin: datetime
-    # 'disponible' (es_bloqueo=0) o 'ocupado' (es_bloqueo=1 o Cita)
-    estado: str
+    estado: str # "disponible" | "no disponible"
 
 
 # --- REQ 2.1 (Para el Prestador) ---
-# El prestador ve sus bloques y si son bloqueos
 class DisponibilidadPrivada(BaseModel):
     id_disponibilidad: int
     hora_inicio: datetime
     hora_fin: datetime
-    es_bloqueo: bool  # True si es "Almuerzo", False si es "Trabajando"
+    es_bloqueo: bool
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 # --- REQ 2.2 (Mis Citas - CORREGIDO) ---
-# ¡Aquí faltaban los nombres y la duración!
 class CitaDetail(BaseModel):
     id_cita: int
     id_cliente: int
@@ -55,7 +50,6 @@ class CitaDetail(BaseModel):
 
     class Config:
         from_attributes = True
-
 # --- MODELOS DE ENTRADA (CREATE) ---
 
 # (Prestador) Define su horario (si trabaja o bloquea)

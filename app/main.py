@@ -94,7 +94,10 @@ def get_public_availability(
         id_prestador: int,
         conn: pyodbc.Connection = Depends(get_db_connection)
 ):
-    """(Req 2.0) (Cliente) Obtiene bloques 'disponibles' y 'ocupados' de un prestador."""
+    """
+    (Req 2.0) (Cliente) Obtiene bloques 'disponibles' y 'no disponibles'.
+    Este endpoint es PÚBLICO y no requiere autenticación.
+    """
     cursor = conn.cursor()
     bloques_publicos = []
 
@@ -107,11 +110,12 @@ def get_public_availability(
             bloques_publicos.append(BloquePublico(
                 hora_inicio=row.hora_inicio,
                 hora_fin=row.hora_fin,
-                # Si es_bloqueo=1 (True) -> 'ocupado', si no -> 'disponible'
-                estado="ocupado" if row.es_bloqueo else "disponible"
+                # --- LÓGICA MODIFICADA ---
+                # Si es_bloqueo=1 (True) -> 'no disponible'
+                estado="no disponible" if row.es_bloqueo else "disponible"
             ))
 
-        # 2. Obtenemos las citas ACEPTADAS (que siempre son 'ocupado')
+        # 2. Obtenemos las citas ACEPTADAS (que siempre son 'no disponible')
         query_citas = "SELECT fecha_hora_cita, duracion_min FROM Citas WHERE id_prestador = ? AND estado = 'aceptada'"
         cursor.execute(query_citas, id_prestador)
 
@@ -121,7 +125,7 @@ def get_public_availability(
             bloques_publicos.append(BloquePublico(
                 hora_inicio=inicio_cita,
                 hora_fin=fin_cita,
-                estado="ocupado"  # Una cita aceptada siempre es 'ocupado'
+                estado="no disponible"
             ))
 
         return bloques_publicos
