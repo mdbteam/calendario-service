@@ -61,6 +61,7 @@ def add_disponibilidad(
         raise HTTPException(status_code=500, detail=f"Error al guardar: {e}")
     finally:
         cursor.close()
+
     return {"mensaje": "Bloque de disponibilidad añadido."}
 
 
@@ -209,7 +210,7 @@ def get_my_citas(
 
 # --- ENDPOINTS DE GESTIÓN (TUS ENDPOINTS ESTABAN BIEN, ¡LOS MANTENEMOS!) ---
 
-@app.post("/citas/{id_cita}/confirmar", tags=["Citas"])
+@app.post("/citas/{id_cita}/aceptar", tags=["Citas"])
 def confirm_cita(
         id_cita: int,
         current_user: UserInDB = Depends(get_current_active_user),
@@ -255,6 +256,8 @@ def confirm_cita(
     return {"mensaje": "Cita confirmada exitosamente. El chat ha sido activado."}
 
 
+
+
 @app.post("/citas/{id_cita}/rechazar", tags=["Citas"])
 def reject_cita(
         id_cita: int,
@@ -267,7 +270,7 @@ def reject_cita(
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "UPDATE Citas SET estado = 'rechazada' WHERE id_cita = ? AND id_prestador = ? AND estado = 'pendiente'",
+            "DELETE FROM citas WHERE id_cita = ? AND id_prestador = ? AND estado = 'pendiente'",
             id_cita, id_prestador)
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404,
