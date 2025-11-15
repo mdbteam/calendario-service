@@ -32,7 +32,7 @@ class DisponibilidadPrivada(BaseModel):
     id_disponibilidad: int
     hora_inicio: datetime
     hora_fin: datetime
-    es_bloqueo: True
+    es_bloqueo: bool
 
     class Config:
         orm_mode = True

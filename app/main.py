@@ -121,7 +121,7 @@ def get_public_availability(
             bloques_publicos.append(BloquePublico(
                 hora_inicio=inicio_cita,
                 hora_fin=fin_cita,
-                estado="ocupado"  # Una cita aceptada siempre es 'ocupado'
+                estado="No disponible"  # Una cita aceptada siempre es 'ocupado'
             ))
 
         return bloques_publicos
