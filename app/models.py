@@ -47,7 +47,7 @@ class CitaDetail(BaseModel):
     fecha_hora_cita: datetime
     duracion_min: int
     detalles: Optional[str] = None
-    estado: str
+  #  estado: str
     id_trabajo: Optional[int]
     id_valoracion: Optional[int]
     cliente_nombres: str
@@ -62,7 +62,10 @@ class CitaDetail(BaseModel):
 class DisponibilidadCreate(BaseModel):
     hora_inicio: datetime
     hora_fin: datetime
-    es_bloqueo: bool = Field(False, description="False=Disponible, True=No disponible")
+    es_bloqueo: bool = Field(
+        default=False,
+        description="False=Disponible (trabajando), True=No disponible (bloqueo personal)"
+    )
 
 
 # (Cliente) Solicita una cita
