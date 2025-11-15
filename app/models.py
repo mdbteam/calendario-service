@@ -29,7 +29,7 @@ class BloquePublico(BaseModel):
 # --- REQ 2.1 (Para el Prestador) ---
 # El prestador ve sus bloques y si son bloqueos
 class DisponibilidadPrivada(BaseModel):
-    id_disponibilidad: int
+    # id_disponibilidad: int
     hora_inicio: datetime
     hora_fin: datetime
     es_bloqueo: bool
