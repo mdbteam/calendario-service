@@ -35,7 +35,7 @@ def root():
 
 # --- ENDPOINTS DE DISPONIBILIDAD (REFACTORIZADOS) ---
 
-@app.post("/calendario/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Calendario"])
+@app.post("/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Calendario"])
 def add_disponibilidad(
         disponibilidad: DisponibilidadCreate,  # <-- Modelo actualizado
         current_user: UserInDB = Depends(get_current_active_user),
@@ -64,7 +64,7 @@ def add_disponibilidad(
     return {"mensaje": "Bloque de disponibilidad añadido."}
 
 
-@app.get("/calendario/disponibilidad/me",
+@app.get("/disponibilidad/me",
          response_model=List[DisponibilidadPrivada],
          tags=["Calendario"])
 def get_my_availability(
@@ -87,7 +87,7 @@ def get_my_availability(
         cursor.close()
 
 
-@app.get("/calendario/prestadores/{id_prestador}/disponibilidad",
+@app.get("/prestadores/{id_prestador}/disponibilidad",
          response_model=List[BloquePublico],
          tags=["Calendario"])
 def get_public_availability(
