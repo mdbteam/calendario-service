@@ -35,7 +35,7 @@ class DisponibilidadPrivada(BaseModel):
     es_bloqueo: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # --- REQ 2.2 (Mis Citas - CORREGIDO) ---
