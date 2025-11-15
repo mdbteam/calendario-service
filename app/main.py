@@ -110,13 +110,15 @@ def get_public_availability(
             bloques_publicos.append(BloquePublico(
                 hora_inicio=row.hora_inicio,
                 hora_fin=row.hora_fin,
-                # --- LÓGICA MODIFICADA ---
-                # Si es_bloqueo=1 (True) -> 'no disponible'
                 estado="no disponible" if row.es_bloqueo else "disponible"
             ))
 
-        # 2. Obtenemos las citas ACEPTADAS (que siempre son 'no disponible')
-        query_citas = "SELECT fecha_hora_cita, duracion_min FROM Citas WHERE id_prestador = ? AND estado = 'aceptada'"
+        # 2. Obtenemos las citas ACEPTADAS y PENDIENTES
+        query_citas = """
+            SELECT fecha_hora_cita, duracion_min FROM Citas 
+            WHERE id_prestador = ? 
+            AND estado IN ('aceptada', 'pendiente')
+        """
         cursor.execute(query_citas, id_prestador)
 
         for row in cursor.fetchall():
@@ -213,7 +215,7 @@ def get_my_citas(
 
 # --- ENDPOINTS DE GESTIÓN (TUS ENDPOINTS ESTABAN BIEN, ¡LOS MANTENEMOS!) ---
 
-@app.post("/citas/{id_cita}/confirmar", tags=["Citas"])
+@app.post("/citas/{id_cita}/aceptar", tags=["Citas"])
 def confirm_cita(
         id_cita: int,
         current_user: UserInDB = Depends(get_current_active_user),
@@ -271,7 +273,7 @@ def reject_cita(
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "UPDATE Citas SET estado = 'rechazada' WHERE id_cita = ? AND id_prestador = ? AND estado = 'pendiente'",
+            "DELETE FROM Citas WHERE id_cita = ? AND id_prestador = ? AND estado = 'pendiente'",
             id_cita, id_prestador)
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404,
