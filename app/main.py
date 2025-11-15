@@ -108,7 +108,7 @@ def get_public_availability(
                 hora_inicio=row.hora_inicio,
                 hora_fin=row.hora_fin,
                 # Si es_bloqueo=1 (True) -> 'ocupado', si no -> 'disponible'
-                estado="ocupado" if row.es_bloqueo else "No disponible"
+                estado="No disponible" if row.es_bloqueo else "No disponible"
             ))
 
         # 2. Obtenemos las citas ACEPTADAS (que siempre son 'ocupado')
