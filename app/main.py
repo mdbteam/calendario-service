@@ -10,8 +10,9 @@ load_dotenv()
 from app.database import get_db_connection
 # ¡Importamos los NUEVOS modelos!
 from app.models import (
-    UserInDB, BloquePublico, DisponibilidadPrivada, CitaDetail,
-    DisponibilidadCreate, CitaCreate
+    UserInDB, BloquePublico, CitaDetail, CitaCreate
+  #  DisponibilidadPrivada, DisponibilidadCreate,
+
 )
 from app.auth_utils import get_current_active_user
 
@@ -35,56 +36,56 @@ def root():
 
 # --- ENDPOINTS DE DISPONIBILIDAD (REFACTORIZADOS) ---
 
-@app.post("/calendario/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Calendario"])
-def add_disponibilidad(
-        disponibilidad: DisponibilidadCreate,  # <-- Modelo actualizado
-        current_user: UserInDB = Depends(get_current_active_user),
-        conn: pyodbc.Connection = Depends(get_db_connection)
-):
-    """(Req 2.1) (Prestador) Añade un bloque de trabajo (es_bloqueo=0) o un bloqueo (es_bloqueo=1)"""
-    es_prestador(current_user)
-    id_prestador = current_user.id_usuario
-
-    if disponibilidad.hora_fin <= disponibilidad.hora_inicio:
-        raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a la de inicio.")
-
-    cursor = conn.cursor()
-    try:
-        # Usamos la nueva lógica de 'es_bloqueo'
-        cursor.execute(
-            "INSERT INTO Disponibilidad (id_prestador, hora_inicio, hora_fin, es_bloqueo) VALUES (?, ?, ?, ?)",
-            id_prestador, disponibilidad.hora_inicio, disponibilidad.hora_fin, disponibilidad.es_bloqueo
-        )
-        conn.commit()
-    except pyodbc.Error as e:
-        conn.rollback();
-        raise HTTPException(status_code=500, detail=f"Error al guardar: {e}")
-    finally:
-        cursor.close()
-    return {"mensaje": "Bloque de disponibilidad añadido."}
-
-
-@app.get("/calendario/disponibilidad/me",
-         response_model=List[DisponibilidadPrivada],
-         tags=["Calendario"])
-def get_my_availability(
-        current_user: UserInDB = Depends(get_current_active_user),
-        conn: pyodbc.Connection = Depends(get_db_connection)
-):
-    """(Req 2.1) (Prestador) Obtiene sus propios bloques (trabajo y bloqueos)."""
-    user_id = current_user.id_usuario
-    cursor = conn.cursor()
-    try:
-        query = "SELECT * FROM Disponibilidad WHERE id_prestador = ? ORDER BY hora_inicio ASC"
-        cursor.execute(query, user_id)
-        rows = cursor.fetchall()
-        if not rows:
-            return []
-        return [DisponibilidadPrivada.from_orm(row) for row in rows]
-    except pyodbc.Error as e:
-        raise HTTPException(status_code=500, detail=f"Error BBDD: {e}")
-    finally:
-        cursor.close()
+# @app.post("/calendario/disponibilidad", status_code=status.HTTP_201_CREATED, tags=["Calendario"])
+# def add_disponibilidad(
+#         disponibilidad: DisponibilidadCreate,  # <-- Modelo actualizado
+#         current_user: UserInDB = Depends(get_current_active_user),
+#         conn: pyodbc.Connection = Depends(get_db_connection)
+# ):
+#     """(Req 2.1) (Prestador) Añade un bloque de trabajo (es_bloqueo=0) o un bloqueo (es_bloqueo=1)"""
+#     es_prestador(current_user)
+#     id_prestador = current_user.id_usuario
+#
+#     if disponibilidad.hora_fin <= disponibilidad.hora_inicio:
+#         raise HTTPException(status_code=400, detail="La fecha de fin debe ser posterior a la de inicio.")
+#
+#     cursor = conn.cursor()
+#     try:
+#         # Usamos la nueva lógica de 'es_bloqueo'
+#         cursor.execute(
+#             "INSERT INTO Disponibilidad (id_prestador, hora_inicio, hora_fin, es_bloqueo) VALUES (?, ?, ?, ?)",
+#             id_prestador, disponibilidad.hora_inicio, disponibilidad.hora_fin, disponibilidad.es_bloqueo
+#         )
+#         conn.commit()
+#     except pyodbc.Error as e:
+#         conn.rollback();
+#         raise HTTPException(status_code=500, detail=f"Error al guardar: {e}")
+#     finally:
+#         cursor.close()
+#     return {"mensaje": "Bloque de disponibilidad añadido."}
+#
+#
+# @app.get("/calendario/disponibilidad/me",
+#          response_model=List[DisponibilidadPrivada],
+#          tags=["Calendario"])
+# def get_my_availability(
+#         current_user: UserInDB = Depends(get_current_active_user),
+#         conn: pyodbc.Connection = Depends(get_db_connection)
+# ):
+#     """(Req 2.1) (Prestador) Obtiene sus propios bloques (trabajo y bloqueos)."""
+#     user_id = current_user.id_usuario
+#     cursor = conn.cursor()
+#     try:
+#         query = "SELECT * FROM Disponibilidad WHERE id_prestador = ? ORDER BY hora_inicio ASC"
+#         cursor.execute(query, user_id)
+#         rows = cursor.fetchall()
+#         if not rows:
+#             return []
+#         return [DisponibilidadPrivada.from_orm(row) for row in rows]
+#     except pyodbc.Error as e:
+#         raise HTTPException(status_code=500, detail=f"Error BBDD: {e}")
+#     finally:
+#         cursor.close()
 
 
 @app.get("/prestadores/{id_prestador}/disponibilidad",

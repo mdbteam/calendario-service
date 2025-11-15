@@ -53,10 +53,10 @@ class CitaDetail(BaseModel):
 # --- MODELOS DE ENTRADA (CREATE) ---
 
 # (Prestador) Define su horario (si trabaja o bloquea)
-class DisponibilidadCreate(BaseModel):
-    hora_inicio: datetime
-    hora_fin: datetime
-    es_bloqueo: bool = Field(False, description="False=No disponible, True= disponible")
+#class DisponibilidadCreate(BaseModel):
+#    hora_inicio: datetime
+#    hora_fin: datetime
+#    es_bloqueo: bool = Field(False, description="False=No disponible, True= disponible")
 
 
 # (Cliente) Solicita una cita
