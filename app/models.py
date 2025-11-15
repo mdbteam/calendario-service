@@ -63,5 +63,5 @@ class DisponibilidadCreate(BaseModel):
 class CitaCreate(BaseModel):
     id_prestador: int
     fecha_hora_cita: datetime
-    duracion_min: int = Field(60, description="Duración en minutos")  # <-- AÑADIDO
+    duracion_min: int = Field(30, description="Duración en minutos")  # <-- AÑADIDO
     detalles: Optional[str] = None

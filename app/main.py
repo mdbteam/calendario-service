@@ -95,25 +95,17 @@ def get_public_availability(
         conn: pyodbc.Connection = Depends(get_db_connection)
 ):
     """
-    (Req 2.0) (Cliente) Obtiene bloques 'disponibles' y 'no disponibles'.
-    Este endpoint es PÚBLICO y no requiere autenticación.
+    (Req 2.0) (Cliente) Obtiene bloques 'no disponibles'.
+    El frontend asume que todo lo demás está 'disponible'.
     """
     cursor = conn.cursor()
-    bloques_publicos = []
+    bloques_publicos = []  # Lista de bloques "no disponible"
 
     try:
-        # 1. Obtenemos TODOS los bloques de la BBDD (trabajo y bloqueos)
-        query_disp = "SELECT hora_inicio, hora_fin, es_bloqueo FROM Disponibilidad WHERE id_prestador = ?"
-        cursor.execute(query_disp, id_prestador)
+        # --- LÓGICA SIMPLIFICADA (Calendario 100% Abierto) ---
+        # 1. Ya no consultamos la tabla 'Disponibilidad'.
+        # 2. Solo buscamos citas 'aceptada' y 'pendiente'.
 
-        for row in cursor.fetchall():
-            bloques_publicos.append(BloquePublico(
-                hora_inicio=row.hora_inicio,
-                hora_fin=row.hora_fin,
-                estado="no disponible" if row.es_bloqueo else "disponible"
-            ))
-
-        # 2. Obtenemos las citas ACEPTADAS y PENDIENTES
         query_citas = """
             SELECT fecha_hora_cita, duracion_min FROM Citas 
             WHERE id_prestador = ? 
@@ -153,9 +145,7 @@ def create_cita(
 
     cursor = conn.cursor()
     try:
-        # (MEJORA) La validación de conflicto es más compleja ahora
-        # (El frontend debería ayudar, pero aquí validamos de nuevo)
-        # (Por ahora, mantenemos tu validación simple de la hora de INICIO)
+
         cursor.execute(
             "SELECT COUNT(*) FROM Citas WHERE id_prestador = ? AND fecha_hora_cita = ? AND estado IN ('pendiente', 'aceptada')",
             cita_data.id_prestador, cita_data.fecha_hora_cita)
