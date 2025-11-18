@@ -21,6 +21,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# --- CONFIGURACIÓN CORS ---
+origins = [
+    "http://localhost",
+    "http://localhost:8081",
+    "https://auth-service-1-8301.onrender.com",
+    "*",  # solo para desarrollo
+]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,             # Permite enviar credenciales (cookies, auth headers)
+    allow_methods=["*"],                # Permite todos los métodos HTTP
+    allow_headers=["*"],                # Permite todas las cabeceras
+)
+# --- CONFIGURACIÓN CORS ---
+
 
 def es_prestador(user: UserInDB):
     if user.id_rol not in [2, 3]:  # 2=Proveedor, 3=Híbrido
