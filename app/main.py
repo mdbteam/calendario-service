@@ -1,6 +1,7 @@
 # En app/main.py
 from fastapi import FastAPI, Depends, HTTPException, status
 from typing import List
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 import pyodbc
 from dotenv import load_dotenv
